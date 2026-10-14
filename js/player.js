@@ -60,26 +60,31 @@ export class YouTubeEngine extends Emitter {
     this._playing = false;
     this._vol = 0.85;
   }
-  async ensure() {
-    if (this.player) return this.player;
-    const YT = await loadYouTubeApi();
-    await new Promise((res) => {
-      this.player = new YT.Player(this.hostId, {
+  // this.player появляется только когда плеер полностью готов — до этого у объекта YT.Player нет методов.
+  ensure() {
+    this._ready ??= loadYouTubeApi().then((YT) => new Promise((res) => {
+      const p = new YT.Player(this.hostId, {
         width: '100%', height: '100%',
         playerVars: { autoplay: 1, controls: 1, playsinline: 1, rel: 0, modestbranding: 1, iv_load_policy: 3 },
         events: {
-          onReady: () => res(),
+          onReady: () => { this.player = p; p.setVolume(this._vol * 100); res(p); },
           onStateChange: (e) => this._state(e.data),
           onError: (e) => this.emit('error', { code: e.data, message: ytError(e.data) }),
         },
       });
-    });
-    this.player.setVolume(this._vol * 100);
-    return this.player;
+    }));
+    this._ready.catch(() => { this._ready = null; });
+    return this._ready;
   }
   _state(s) {
     const YT = window.YT;
     this._sync();
+    if (s === YT.PlayerState.PLAYING && this._wantPause) {
+      // Пауза была нажата, пока плеер ещё грузился.
+      this._wantPause = false;
+      this.player.pauseVideo();
+      return;
+    }
     if (s === YT.PlayerState.PLAYING) {
       this._playing = true;
       this.emit('play'); this.emit('playing');
@@ -94,13 +99,14 @@ export class YouTubeEngine extends Emitter {
     this._stamp = performance.now();
   }
   async load(videoId) {
+    this._wantPause = false;
     await this.ensure();
     this._metaSent = false;
     this._t = 0; this._stamp = performance.now();
     this.player.loadVideoById(videoId);
   }
-  play() { this.player?.playVideo(); return Promise.resolve(); }
-  pause() { this.player?.pauseVideo(); }
+  play() { this._wantPause = false; this.player?.playVideo(); return Promise.resolve(); }
+  pause() { this.player?.pauseVideo(); this._wantPause = !this.player; }
   stop() { this.player?.stopVideo(); this._playing = false; }
   seek(t) { this.player?.seekTo(Math.max(0, t), true); this._t = t; this._stamp = performance.now(); }
   get time() {
