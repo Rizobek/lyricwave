@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LyricWave</title>
+  <meta name="description" content="Музыка с живым текстом и анимацией, которая чувствует мелодию">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Comfortaa:wght@500;700&family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,500&family=Russo+One&family=Unbounded:wght@500;700;800&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="mode-home">
+  <canvas id="gl" hidden></canvas>
+  <canvas id="c2d"></canvas>
+  <div id="grain"></div>
+  <audio id="audioA" preload="auto"></audio>
+  <audio id="audioB" preload="auto"></audio>
+
+  <!-- Библиотека -->
+  <section id="home">
+    <header class="home-head">
+      <div class="logo"><span class="logo-mark"></span>LyricWave</div>
+      <div class="home-actions">
+        <label class="search"><span data-icon="search"></span><input id="filter" type="search" placeholder="Найти в библиотеке"></label>
+        <button class="btn ghost" id="btnShare" data-icon="share" title="Поделиться">Поделиться</button>
+        <button class="btn ghost" id="btnStyleHome" data-icon="style" title="Стиль">Стиль</button>
+      </div>
+    </header>
+    <div class="hero">
+      <h1>Выбери песню —<br><span>и смотри, как оживает её текст</span></h1>
+      <p id="modeHint" class="mode-hint"></p>
+      <button id="nowPill" class="now-pill" hidden></button>
+    </div>
+    <div id="grid" class="grid"></div>
+    <footer class="home-foot">
+      Тексты — <a href="https://lrclib.net" target="_blank" rel="noopener">LRCLIB</a>, открытая база синхронизированных текстов.
+      <button class="linklike" id="btnRestore">Вернуть предложенные песни</button>
+    </footer>
+  </section>
+
+  <!-- Плеер -->
+  <section id="player">
+    <div id="lyrics"></div>
+    <div class="topbar ui">
+      <button class="icon-btn" id="btnBack" data-icon="back" title="К библиотеке (Esc)"></button>
+      <div class="now"><img class="cover" alt=""><div class="meta"><div class="t"></div><div class="a"></div></div></div>
+      <div class="spacer"></div>
+      <button id="lyricsBadge" class="badge" hidden></button>
+      <button class="btn ghost" id="btnCapture" data-icon="ear" hidden title="Дать анимации слышать звук вкладки">Анимация под звук</button>
+      <button class="icon-btn" id="btnLyricsEdit" data-icon="edit" title="Текст песни"></button>
+      <button class="icon-btn" id="btnQueue" data-icon="library" title="Очередь (L)"></button>
+      <button class="icon-btn" id="btnStyle" data-icon="style" title="Стиль (S)"></button>
+      <button class="icon-btn" id="btnFull" data-icon="fullscreen" title="Во весь экран (F)"></button>
+    </div>
+    <div class="bottombar ui">
+      <div class="progress">
+        <span id="tCur">0:00</span>
+        <div id="bar" class="bar"><div class="fill"></div><div class="knob"></div></div>
+        <span id="tDur">0:00</span>
+      </div>
+      <div class="controls">
+        <div class="side">
+          <button class="icon-btn sm" id="btnShuffle" data-icon="shuffle" title="Перемешать"></button>
+          <button class="icon-btn sm" id="btnRepeat" data-icon="repeat" title="Повтор"></button>
+          <div class="sync" title="Сдвинуть текст, если он опережает или отстаёт от песни ( [ и ] )">
+            <button class="icon-btn sm" id="syncEarlier">◀</button>
+            <span id="syncVal">синхр.</span>
+            <button class="icon-btn sm" id="syncLater">▶</button>
+            <button class="mini" id="syncTap" title="Нажми, затем нажми ещё раз в момент, когда зазвучит показанная строка (Enter)">подогнать</button>
+          </div>
+        </div>
+        <div class="center">
+          <button class="icon-btn" id="btnPrev" data-icon="prev" title="Предыдущая (P)"></button>
+          <button class="icon-btn play" id="btnPlay" data-icon="play" title="Пауза / играть (Пробел)"></button>
+          <button class="icon-btn" id="btnNext" data-icon="next" title="Следующая (N)"></button>
+        </div>
+        <div class="side right">
+          <button class="icon-btn sm" id="btnMute" data-icon="volume" title="Звук"></button>
+          <input id="vol" type="range" min="0" max="1" step="0.01" aria-label="Громкость">
+        </div>
+      </div>
+    </div>
+    <div id="loader">
+      <div class="ring"></div>
+      <div class="msg"></div>
+      <div class="pbar"><i></i></div>
+      <div class="actions"></div>
+    </div>
+    <div id="ytbox" hidden><div id="yt"></div></div>
+  </section>
+
+  <!-- Панель стиля -->
+  <aside id="stylePanel" class="panel">
+    <div class="panel-head"><h3>Стиль</h3><button class="icon-btn sm" data-close data-icon="close"></button></div>
+    <h4>Анимация</h4>
+    <div id="visualOpts" class="opts"></div>
+    <h4>Текст</h4>
+    <div id="textOpts" class="opts"></div>
+    <h4>Цвета</h4>
+    <div id="palOpts" class="chips"></div>
+    <h4>Настройки</h4>
+    <label class="slider">Реакция на музыку <input id="optReact" type="range" min="0.4" max="1.6" step="0.05"></label>
+    <label class="slider">Размер текста <input id="optSize" type="range" min="0.7" max="1.4" step="0.05"></label>
+    <p class="hint">Клавиши: <b>V</b> — следующая анимация, <b>T</b> — следующий стиль текста.</p>
+  </aside>
+
+  <!-- Очередь -->
+  <aside id="queuePanel" class="panel">
+    <div class="panel-head"><h3>Очередь</h3><button class="icon-btn sm" data-close data-icon="close"></button></div>
+    <button class="btn wide" id="btnAddFromQueue" data-icon="plus">Добавить песню</button>
+    <div id="queueList" class="qlist"></div>
+  </aside>
+
+  <!-- Добавление песни -->
+  <dialog id="dlgAdd" class="dlg">
+    <form method="dialog" class="dlg-head"><h3>Добавить песню</h3><button class="icon-btn sm" data-icon="close" value="close"></button></form>
+    <div class="add-row">
+      <input id="addInput" type="text" placeholder="Ссылка (YouTube, SoundCloud, VK, …) или название песни" autocomplete="off">
+      <button class="btn primary" id="addGo">Найти</button>
+    </div>
+    <p id="addHint" class="hint"></p>
+    <div id="addResults"></div>
+    <div class="or"><span>или</span></div>
+    <label class="drop" id="dropZone">
+      <input id="fileInput" type="file" accept="audio/*,video/*,.mp3,.m4a,.flac,.ogg,.opus,.wav,.webm" multiple hidden>
+      <span data-icon="upload"></span> Выбери аудиофайлы на компьютере или перетащи их сюда
+    </label>
+  </dialog>
+
+  <!-- Текст песни -->
+  <dialog id="dlgLyrics" class="dlg">
+    <form method="dialog" class="dlg-head"><h3>Текст песни</h3><button class="icon-btn sm" data-icon="close" value="close"></button></form>
+    <p class="hint" id="lyrCurrent"></p>
+    <div class="two">
+      <label>Исполнитель<input id="lyrArtist" type="text"></label>
+      <label>Название<input id="lyrTitle" type="text"></label>
+    </div>
+    <div class="row-end"><button class="btn primary" id="lyrSearch" data-icon="search">Искать текст</button></div>
+    <div id="lyrResults" class="results"></div>
+    <details class="manual">
+      <summary>Вставить свой текст</summary>
+      <textarea id="lyrText" rows="7" placeholder="Обычный текст (строки расставятся по песне примерно) или формат LRC: [00:12.30] строка"></textarea>
+      <div class="row-end"><button class="btn ghost" id="lyrClear">Убрать текст</button><button class="btn" id="lyrApply">Применить</button></div>
+    </details>
+  </dialog>
+
+  <!-- Поделиться -->
+  <dialog id="dlgShare" class="dlg">
+    <form method="dialog" class="dlg-head"><h3>Поделиться</h3><button class="icon-btn sm" data-icon="close" value="close"></button></form>
+    <h4>Плейлист</h4>
+    <p class="hint">Друзья получат все твои песни (кроме файлов с компьютера). Тексты подтянутся у них автоматически.</p>
+    <div class="row-end left">
+      <button class="btn primary" id="shareLink" data-icon="link">Скопировать ссылку</button>
+      <button class="btn" id="shareCode">Скопировать код</button>
+    </div>
+    <h4>Добавить плейлист друга</h4>
+    <textarea id="importText" rows="3" placeholder="Вставь ссылку или код плейлиста"></textarea>
+    <div class="row-end left"><button class="btn" id="importGo" data-icon="plus">Добавить песни</button></div>
+    <h4>Само приложение</h4>
+    <p class="hint" id="shareAppHint"></p>
+  </dialog>
+
+  <div id="toast"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
